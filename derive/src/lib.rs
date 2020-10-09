@@ -14,17 +14,19 @@ mod constructor;
 mod contract;
 mod event;
 mod function;
+mod options;
 
 use anyhow::anyhow;
 use ethabi::{Contract, Param, ParamType, Result};
 use heck::SnakeCase;
+use options::ContractOptions;
 use proc_macro2::Span;
 use quote::quote;
 use std::{env, fs, path::PathBuf};
 
 const ERROR_MSG: &str = "`derive(EthabiContract)` failed";
 
-#[proc_macro_derive(EthabiContract, attributes(ethabi_contract_options))]
+#[proc_macro_derive(EthabiContract, attributes(ethabi_contract_options, ethabi_function_options))]
 pub fn ethabi_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 	let ast = syn::parse(input).expect(ERROR_MSG);
 	let gen = impl_ethabi_derive(&ast).expect(ERROR_MSG);
@@ -32,13 +34,12 @@ pub fn ethabi_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
 }
 
 fn impl_ethabi_derive(ast: &syn::DeriveInput) -> Result<proc_macro2::TokenStream> {
-	let options = get_options(&ast.attrs, "ethabi_contract_options")?;
-	let path = get_option(&options, "path")?;
-	let normalized_path = normalize_path(&path)?;
+	let contract_options = ContractOptions::from_attrs(ast.attrs.as_slice())?;
+	let normalized_path = normalize_path(&contract_options.path)?;
 	let source_file = fs::File::open(&normalized_path)
 		.map_err(|_| anyhow!("Cannot load contract abi from `{}`", normalized_path.display()))?;
 	let contract = Contract::load(source_file)?;
-	let c = contract::Contract::from(&contract);
+	let c = contract::Contract::new(&contract, Some(contract_options));
 	Ok(c.generate())
 }
 
