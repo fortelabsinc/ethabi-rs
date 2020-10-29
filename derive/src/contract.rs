@@ -45,7 +45,9 @@ impl Contract {
 							func.module_name = fn_options.alias.to_string();
 						}
 						func
-					}).collect()
+					}).filter(|function|
+						function.module_name.len() > 0
+					).collect()
 			},
 			None => c.functions().map(Into::into).collect()
 		};
