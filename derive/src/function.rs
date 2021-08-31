@@ -7,10 +7,8 @@
 // except according to those terms.
 
 use heck::SnakeCase;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::export::Span;
-use {ethabi, syn};
 
 use super::{
 	from_template_param, from_token, get_output_kinds, get_template_names, input_names, rust_type, template_param_type,
@@ -68,8 +66,13 @@ pub struct Function {
 	inputs: Inputs,
 	/// Function output params.
 	outputs: Outputs,
+	#[deprecated(note = "The constant attribute was removed in Solidity 0.5.0 and has been \
+				replaced with stateMutability. If parsing a JSON AST created with \
+				this version or later this value will always be false, which may be wrong.")]
 	/// Constant function.
 	constant: bool,
+	/// Whether the function reads or modifies blockchain state
+	state_mutability: ethabi::StateMutability,
 }
 
 impl<'a> From<&'a ethabi::Function> for Function {
@@ -101,7 +104,7 @@ impl<'a> From<&'a ethabi::Function> for Function {
 		let tokenize: Vec<_> = input_names
 			.iter()
 			.zip(f.inputs.iter())
-			.map(|(param_name, param)| to_token(&from_template_param(&param.kind, &param_name), &param.kind))
+			.map(|(param_name, param)| to_token(&from_template_param(&param.kind, param_name), &param.kind))
 			.collect();
 
 		let output_result = get_output_kinds(&f.outputs);
@@ -130,6 +133,10 @@ impl<'a> From<&'a ethabi::Function> for Function {
 			}
 		};
 
+		// The allow deprecated only applies to the field 'constant', but
+		// due to this issue: https://github.com/rust-lang/rust/issues/60681
+		// it must go on the entire struct
+		#[allow(deprecated)]
 		Function {
 			name: f.name.clone(),
 			module_name: f.name.clone().to_snake_case(),
@@ -142,6 +149,7 @@ impl<'a> From<&'a ethabi::Function> for Function {
 				recreate_quote: to_ethabi_param_vec(&f.outputs),
 			},
 			constant: f.constant,
+			state_mutability: f.state_mutability,
 		}
 	}
 }
@@ -156,7 +164,14 @@ impl Function {
 		let definitions: &Vec<_> = &self.inputs.template_params.iter().map(|i| &i.definition).collect();
 		let recreate_inputs = &self.inputs.recreate_quote;
 		let recreate_outputs = &self.outputs.recreate_quote;
-		let constant = &self.constant;
+		#[allow(deprecated)]
+		let constant = self.constant;
+		let state_mutability = match self.state_mutability {
+			ethabi::StateMutability::Pure => quote! { ::ethabi::StateMutability::Pure },
+			ethabi::StateMutability::Payable => quote! { ::ethabi::StateMutability::Payable },
+			ethabi::StateMutability::NonPayable => quote! { ::ethabi::StateMutability::NonPayable },
+			ethabi::StateMutability::View => quote! { ::ethabi::StateMutability::View },
+		};
 		let outputs_result = &self.outputs.result;
 		let outputs_implementation = &self.outputs.implementation;
 
@@ -171,6 +186,7 @@ impl Function {
 						inputs: #recreate_inputs,
 						outputs: #recreate_outputs,
 						constant: #constant,
+						state_mutability: #state_mutability
 					}
 				}
 
@@ -211,13 +227,18 @@ impl Function {
 #[cfg(test)]
 mod tests {
 	use super::Function;
-	use ethabi;
 	use quote::quote;
 
 	#[test]
 	fn test_no_params() {
-		let ethabi_function =
-			ethabi::Function { name: "empty".into(), inputs: vec![], outputs: vec![], constant: false };
+		#[allow(deprecated)]
+		let ethabi_function = ethabi::Function {
+			name: "empty".into(),
+			inputs: vec![],
+			outputs: vec![],
+			constant: false,
+			state_mutability: ethabi::StateMutability::Payable,
+		};
 
 		let f = Function::from(&ethabi_function);
 
@@ -232,6 +253,7 @@ mod tests {
 						inputs: vec![],
 						outputs: vec![],
 						constant: false,
+						state_mutability: ::ethabi::StateMutability::Payable
 					}
 				}
 
@@ -273,11 +295,17 @@ mod tests {
 
 	#[test]
 	fn test_one_param() {
+		#[allow(deprecated)]
 		let ethabi_function = ethabi::Function {
 			name: "hello".into(),
-			inputs: vec![ethabi::Param { name: "foo".into(), kind: ethabi::ParamType::Address }],
-			outputs: vec![ethabi::Param { name: "bar".into(), kind: ethabi::ParamType::Uint(256) }],
+			inputs: vec![ethabi::Param { name: "foo".into(), kind: ethabi::ParamType::Address, internal_type: None }],
+			outputs: vec![ethabi::Param {
+				name: "bar".into(),
+				kind: ethabi::ParamType::Uint(256),
+				internal_type: None,
+			}],
 			constant: false,
+			state_mutability: ethabi::StateMutability::Payable,
 		};
 
 		let f = Function::from(&ethabi_function);
@@ -292,13 +320,16 @@ mod tests {
 						name: "hello".into(),
 						inputs: vec![ethabi::Param {
 							name: "foo".to_owned(),
-							kind: ethabi::ParamType::Address
+							kind: ethabi::ParamType::Address,
+							internal_type: None
 						}],
 						outputs: vec![ethabi::Param {
 							name: "bar".to_owned(),
-							kind: ethabi::ParamType::Uint(256usize)
+							kind: ethabi::ParamType::Uint(256usize),
+							internal_type: None
 						}],
 						constant: false,
+						state_mutability: ::ethabi::StateMutability::Payable
 					}
 				}
 
@@ -310,7 +341,7 @@ mod tests {
 
 					fn decode(&self, output: &[u8]) -> ethabi::Result<Self::Output> {
 						let out = self.0.decode_output(output)?.into_iter().next().expect(INTERNAL_ERR);
-						Ok(out.to_uint().expect(INTERNAL_ERR))
+						Ok(out.into_uint().expect(INTERNAL_ERR))
 					}
 				}
 
@@ -340,23 +371,27 @@ mod tests {
 
 	#[test]
 	fn test_multiple_params() {
+		#[allow(deprecated)]
 		let ethabi_function = ethabi::Function {
 			name: "multi".into(),
 			inputs: vec![
 				ethabi::Param {
 					name: "foo".into(),
 					kind: ethabi::ParamType::FixedArray(Box::new(ethabi::ParamType::Address), 2),
+					internal_type: None,
 				},
 				ethabi::Param {
 					name: "bar".into(),
 					kind: ethabi::ParamType::Array(Box::new(ethabi::ParamType::Uint(256))),
+					internal_type: None,
 				},
 			],
 			outputs: vec![
-				ethabi::Param { name: "".into(), kind: ethabi::ParamType::Uint(256) },
-				ethabi::Param { name: "".into(), kind: ethabi::ParamType::String },
+				ethabi::Param { name: "".into(), kind: ethabi::ParamType::Uint(256), internal_type: None },
+				ethabi::Param { name: "".into(), kind: ethabi::ParamType::String, internal_type: None },
 			],
 			constant: false,
+			state_mutability: ethabi::StateMutability::Payable,
 		};
 
 		let f = Function::from(&ethabi_function);
@@ -371,19 +406,24 @@ mod tests {
 						name: "multi".into(),
 						inputs: vec![ethabi::Param {
 							name: "foo".to_owned(),
-							kind: ethabi::ParamType::FixedArray(Box::new(ethabi::ParamType::Address), 2usize)
+							kind: ethabi::ParamType::FixedArray(Box::new(ethabi::ParamType::Address), 2usize),
+							internal_type: None
 						}, ethabi::Param {
 							name: "bar".to_owned(),
-							kind: ethabi::ParamType::Array(Box::new(ethabi::ParamType::Uint(256usize)))
+							kind: ethabi::ParamType::Array(Box::new(ethabi::ParamType::Uint(256usize))),
+							internal_type: None
 						}],
 						outputs: vec![ethabi::Param {
 							name: "".to_owned(),
-							kind: ethabi::ParamType::Uint(256usize)
+							kind: ethabi::ParamType::Uint(256usize),
+							internal_type: None
 						}, ethabi::Param {
 							name: "".to_owned(),
-							kind: ethabi::ParamType::String
+							kind: ethabi::ParamType::String,
+							internal_type: None
 						}],
 						constant: false,
+						state_mutability: ::ethabi::StateMutability::Payable
 					}
 				}
 
@@ -395,7 +435,7 @@ mod tests {
 
 					fn decode(&self, output: &[u8]) -> ethabi::Result<Self::Output> {
 						let mut out = self.0.decode_output(output)?.into_iter();
-						Ok((out.next().expect(INTERNAL_ERR).to_uint().expect(INTERNAL_ERR), out.next().expect(INTERNAL_ERR).to_string().expect(INTERNAL_ERR)))
+						Ok((out.next().expect(INTERNAL_ERR).into_uint().expect(INTERNAL_ERR), out.next().expect(INTERNAL_ERR).into_string().expect(INTERNAL_ERR)))
 					}
 				}
 
