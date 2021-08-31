@@ -104,9 +104,9 @@ impl<T> From<Vec<T>> for Topic<T> {
 	}
 }
 
-impl<T> Into<Vec<T>> for Topic<T> {
-	fn into(self: Self) -> Vec<T> {
-		match self {
+impl<T> From<Topic<T>> for Vec<T> {
+	fn from(topic: Topic<T>) -> Self {
+		match topic {
 			Topic::Any => vec![],
 			Topic::This(topic) => vec![topic],
 			Topic::OneOf(topics) => topics,
@@ -152,7 +152,6 @@ impl<T> ops::Index<usize> for Topic<T> {
 mod tests {
 	use super::{Topic, TopicFilter};
 	use crate::Hash;
-	use serde_json;
 
 	fn hash(s: &'static str) -> Hash {
 		s.parse().unwrap()

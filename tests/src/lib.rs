@@ -18,13 +18,12 @@ mod tests {
 	use crate::{eip20, validators};
 	use ethabi::{Address, Uint};
 	use hex_literal::hex;
-	use rustc_hex::ToHex;
 
 	struct Wrapper([u8; 20]);
 
-	impl Into<Address> for Wrapper {
-		fn into(self) -> Address {
-			self.0.into()
+	impl From<Wrapper> for Address {
+		fn from(wrapper: Wrapper) -> Self {
+			wrapper.0.into()
 		}
 	}
 
@@ -35,15 +34,14 @@ mod tests {
 		let first = [0x11u8; 20];
 		let second = [0x22u8; 20];
 
-		let encoded_from_vec = functions::set_validators::encode_input(vec![first.clone(), second.clone()]);
-		let encoded_from_vec_iter =
-			functions::set_validators::encode_input(vec![first.clone(), second.clone()].into_iter());
+		let encoded_from_vec = functions::set_validators::encode_input(vec![first, second]);
+		let encoded_from_vec_iter = functions::set_validators::encode_input(vec![first, second].into_iter());
 		let encoded_from_vec_wrapped = functions::set_validators::encode_input(vec![Wrapper(first), Wrapper(second)]);
 
 		let expected = "9300c9260000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000011111111111111111111111111111111111111110000000000000000000000002222222222222222222222222222222222222222".to_owned();
-		assert_eq!(expected, encoded_from_vec.to_hex::<String>());
-		assert_eq!(expected, encoded_from_vec_iter.to_hex::<String>());
-		assert_eq!(expected, encoded_from_vec_wrapped.to_hex::<String>());
+		assert_eq!(expected, hex::encode(&encoded_from_vec));
+		assert_eq!(expected, hex::encode(&encoded_from_vec_iter));
+		assert_eq!(expected, hex::encode(&encoded_from_vec_wrapped));
 	}
 
 	#[test]
@@ -71,14 +69,14 @@ mod tests {
 		let first = [0x11u8; 20];
 		let second = [0x22u8; 20];
 
-		let encoded_from_vec = constructor(code.clone(), vec![first.clone(), second.clone()]);
-		let encoded_from_vec_iter = constructor(code.clone(), vec![first.clone(), second.clone()].into_iter());
-		let encoded_from_vec_wrapped = constructor(code.clone(), vec![Wrapper(first), Wrapper(second)]);
+		let encoded_from_vec = constructor(code.clone(), vec![first, second]);
+		let encoded_from_vec_iter = constructor(code.clone(), vec![first, second].into_iter());
+		let encoded_from_vec_wrapped = constructor(code, vec![Wrapper(first), Wrapper(second)]);
 
 		let expected = "0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000200000000000000000000000011111111111111111111111111111111111111110000000000000000000000002222222222222222222222222222222222222222".to_owned();
-		assert_eq!(expected, encoded_from_vec.to_hex::<String>());
-		assert_eq!(expected, encoded_from_vec_iter.to_hex::<String>());
-		assert_eq!(expected, encoded_from_vec_wrapped.to_hex::<String>());
+		assert_eq!(expected, hex::encode(&encoded_from_vec));
+		assert_eq!(expected, hex::encode(&encoded_from_vec_iter));
+		assert_eq!(expected, hex::encode(&encoded_from_vec_wrapped));
 	}
 
 	#[test]
@@ -88,15 +86,15 @@ mod tests {
 		let first = [0x11u8; 20];
 		let second = [0x22u8; 20];
 
-		let encoded_from_array = functions::add_two_validators::encode_input([first.clone(), second.clone()]);
+		let encoded_from_array = functions::add_two_validators::encode_input([first, second]);
 		let encoded_from_array_wrapped = functions::add_two_validators::encode_input([Wrapper(first), Wrapper(second)]);
 		let encoded_from_string = functions::set_title::encode_input("foo");
 
 		let expected_array = "7de33d2000000000000000000000000011111111111111111111111111111111111111110000000000000000000000002222222222222222222222222222222222222222".to_owned();
 		let expected_string = "72910be000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000003666f6f0000000000000000000000000000000000000000000000000000000000".to_owned();
-		assert_eq!(expected_array, encoded_from_array.to_hex::<String>());
-		assert_eq!(expected_array, encoded_from_array_wrapped.to_hex::<String>());
-		assert_eq!(expected_string, encoded_from_string.to_hex::<String>())
+		assert_eq!(expected_array, hex::encode(&encoded_from_array));
+		assert_eq!(expected_array, hex::encode(&encoded_from_array_wrapped));
+		assert_eq!(expected_string, hex::encode(&encoded_from_string))
 	}
 
 	#[test]
@@ -106,7 +104,7 @@ mod tests {
 		let spender = [1u8; 20];
 		let encoded = eip20::functions::allowance::encode_input(owner, spender);
 		// 4 bytes signature + 2 * 32 bytes for params
-		assert_eq!(encoded.to_hex::<String>(), expected);
+		assert_eq!(hex::encode(&encoded), expected);
 
 		let from: Address = [2u8; 20].into();
 		let to: Address = [3u8; 20].into();

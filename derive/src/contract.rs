@@ -6,7 +6,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use ethabi;
 use proc_macro2::TokenStream;
 use quote::quote;
 
@@ -96,7 +95,6 @@ impl Contract {
 
 #[cfg(test)]
 mod test {
-	use ethabi;
 	use quote::quote;
 
 	use super::Contract;
@@ -107,6 +105,7 @@ mod test {
 			constructor: None,
 			functions: Default::default(),
 			events: Default::default(),
+			receive: false,
 			fallback: false,
 		};
 

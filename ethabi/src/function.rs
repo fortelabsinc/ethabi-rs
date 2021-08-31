@@ -10,22 +10,30 @@
 
 use std::string::ToString;
 
-use crate::signature::short_signature;
-use crate::{decode, encode, Bytes, Error, Param, ParamType, Result, Token};
-use serde::Deserialize;
+use crate::{
+	decode, encode, signature::short_signature, Bytes, Error, Param, ParamType, Result, StateMutability, Token,
+};
+use serde::{Deserialize, Serialize};
 
 /// Contract function specification.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Function {
 	/// Function name.
+	#[serde(deserialize_with = "crate::util::sanitize_name::deserialize")]
 	pub name: String,
 	/// Function input.
 	pub inputs: Vec<Param>,
 	/// Function output.
 	pub outputs: Vec<Param>,
+	#[deprecated(note = "The constant attribute was removed in Solidity 0.5.0 and has been \
+				replaced with stateMutability. If parsing a JSON AST created with \
+				this version or later this value will always be false, which may be wrong.")]
 	/// Constant function.
 	#[serde(default)]
 	pub constant: bool,
+	/// Whether the function reads or modifies blockchain state
+	#[serde(rename = "stateMutability", default)]
+	pub state_mutability: StateMutability,
 }
 
 impl Function {
@@ -54,12 +62,12 @@ impl Function {
 
 	/// Parses the ABI function output to list of tokens.
 	pub fn decode_output(&self, data: &[u8]) -> Result<Vec<Token>> {
-		decode(&self.output_param_types(), &data)
+		decode(&self.output_param_types(), data)
 	}
 
 	/// Parses the ABI function input to a list of tokens.
 	pub fn decode_input(&self, data: &[u8]) -> Result<Vec<Token>> {
-		decode(&self.input_param_types(), &data)
+		decode(&self.input_param_types(), data)
 	}
 
 	/// Returns a signature that uniquely identifies this function.
@@ -92,22 +100,23 @@ impl Function {
 
 #[cfg(test)]
 mod tests {
-	use crate::{Function, Param, ParamType, Token};
+	use crate::{Function, Param, ParamType, StateMutability, Token};
 	use hex_literal::hex;
 
 	#[test]
 	fn test_function_encode_call() {
-		let interface = Function {
+		#[allow(deprecated)]
+		let func = Function {
 			name: "baz".to_owned(),
 			inputs: vec![
-				Param { name: "a".to_owned(), kind: ParamType::Uint(32) },
-				Param { name: "b".to_owned(), kind: ParamType::Bool },
+				Param { name: "a".to_owned(), kind: ParamType::Uint(32), internal_type: None },
+				Param { name: "b".to_owned(), kind: ParamType::Bool, internal_type: None },
 			],
 			outputs: vec![],
 			constant: false,
+			state_mutability: StateMutability::Payable,
 		};
 
-		let func = Function::from(interface);
 		let mut uint = [0u8; 32];
 		uint[31] = 69;
 		let encoded = func.encode_input(&[Token::Uint(uint.into()), Token::Bool(true)]).unwrap();

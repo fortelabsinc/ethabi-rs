@@ -7,10 +7,8 @@
 // except according to those terms.
 
 use heck::{CamelCase, SnakeCase};
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::export::Span;
-use {ethabi, syn};
 
 use super::{from_token, get_template_names, rust_type, to_syntax_string, to_token};
 
@@ -206,7 +204,6 @@ impl Event {
 #[cfg(test)]
 mod tests {
 	use super::Event;
-	use ethabi;
 	use quote::quote;
 
 	#[test]
@@ -312,7 +309,7 @@ mod tests {
 					let e = event();
 					let mut log = e.parse_log(log)?.params.into_iter();
 					let result = super::super::logs::One {
-						foo: log.next().expect(INTERNAL_ERR).value.to_address().expect(INTERNAL_ERR)
+						foo: log.next().expect(INTERNAL_ERR).value.into_address().expect(INTERNAL_ERR)
 					};
 					Ok(result)
 				}

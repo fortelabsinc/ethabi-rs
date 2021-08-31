@@ -6,16 +6,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use crate::errors::Error;
-use crate::token::Tokenizer;
-use hex::FromHex;
+use crate::{errors::Error, token::Tokenizer};
 
 /// Tries to parse string as a token. Require string to clearly represent the value.
 pub struct StrictTokenizer;
 
 impl Tokenizer for StrictTokenizer {
 	fn tokenize_address(value: &str) -> Result<[u8; 20], Error> {
-		let hex: Vec<u8> = value.from_hex()?;
+		let hex: Vec<u8> = hex::decode(value)?;
 		match hex.len() == 20 {
 			false => Err(Error::InvalidData),
 			true => {
@@ -39,11 +37,11 @@ impl Tokenizer for StrictTokenizer {
 	}
 
 	fn tokenize_bytes(value: &str) -> Result<Vec<u8>, Error> {
-		value.from_hex().map_err(Into::into)
+		hex::decode(value).map_err(Into::into)
 	}
 
 	fn tokenize_fixed_bytes(value: &str, len: usize) -> Result<Vec<u8>, Error> {
-		let hex: Vec<u8> = value.from_hex()?;
+		let hex: Vec<u8> = hex::decode(value)?;
 		match hex.len() == len {
 			true => Ok(hex),
 			false => Err(Error::InvalidData),
@@ -51,7 +49,7 @@ impl Tokenizer for StrictTokenizer {
 	}
 
 	fn tokenize_uint(value: &str) -> Result<[u8; 32], Error> {
-		let hex: Vec<u8> = value.from_hex()?;
+		let hex: Vec<u8> = hex::decode(value)?;
 		match hex.len() == 32 {
 			true => {
 				let mut uint = [0u8; 32];
@@ -69,8 +67,10 @@ impl Tokenizer for StrictTokenizer {
 
 #[cfg(test)]
 mod tests {
-	use crate::token::{StrictTokenizer, Token, Tokenizer};
-	use crate::ParamType;
+	use crate::{
+		token::{StrictTokenizer, Token, Tokenizer},
+		ParamType,
+	};
 
 	#[test]
 	fn tokenize_address() {

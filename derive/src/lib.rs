@@ -16,13 +16,14 @@ mod event;
 mod function;
 mod options;
 
+use anyhow::anyhow;
 use ethabi::{Contract, Param, ParamType, Result};
 use heck::SnakeCase;
 use options::ContractOptions;
 use proc_macro2::Span;
 use quote::quote;
-use std::path::PathBuf;
 use std::{env, fs};
+
 
 const ERROR_MSG: &str = "`derive(EthabiContract)` failed";
 
@@ -37,7 +38,7 @@ fn impl_ethabi_derive(ast: &syn::DeriveInput) -> Result<proc_macro2::TokenStream
 	let contract_options = ContractOptions::from_attrs(ast.attrs.as_slice())?;
 	let normalized_path = normalize_path(&contract_options.path)?;
 	let source_file = fs::File::open(&normalized_path)
-		.map_err(|_| format!("Cannot load contract abi from `{}`", normalized_path.display()))?;
+		.map_err(|_| anyhow!("Cannot load contract abi from `{}`", normalized_path.display()))?;
 	let contract = Contract::load(source_file)?;
 	let c = contract::Contract::new(&contract, Some(contract_options));
 	Ok(c.generate())
@@ -48,7 +49,7 @@ fn get_options(attrs: &[syn::Attribute], name: &str) -> Result<Vec<syn::NestedMe
 
 	match options {
 		Some(syn::Meta::List(list)) => Ok(list.nested.into_iter().collect()),
-		_ => Err("Unexpected meta item".into()),
+		_ => Err(anyhow!("Unexpected meta item").into()),
 	}
 }
 
@@ -60,7 +61,7 @@ fn get_option(options: &[syn::NestedMeta], name: &str) -> Result<String> {
 			_ => None,
 		})
 		.find(|meta| meta.path().is_ident(name))
-		.ok_or_else(|| format!("Expected to find option {}", name))?;
+		.ok_or_else(|| anyhow!("Expected to find option {}", name))?;
 
 	str_value_of_meta_item(item, name)
 }
@@ -72,12 +73,17 @@ fn str_value_of_meta_item(item: &syn::Meta, name: &str) -> Result<String> {
 		}
 	}
 
-	Err(format!(r#"`{}` must be in the form `#[{}="something"]`"#, name, name).into())
+	Err(anyhow!(r#"`{}` must be in the form `#[{}="something"]`"#, name, name).into())
 }
 
-fn normalize_path(relative_path: &str) -> Result<PathBuf> {
+fn normalize_path(relative_path: &str) -> Result<
+
+
+
+
+> {
 	// workaround for https://github.com/rust-lang/rust/issues/43860
-	let cargo_toml_directory = env::var("CARGO_MANIFEST_DIR").map_err(|_| "Cannot find manifest file")?;
+	let cargo_toml_directory = env::var("CARGO_MANIFEST_DIR").map_err(|_| anyhow!("Cannot find manifest file"))?;
 	let mut path: PathBuf = cargo_toml_directory.into();
 	path.push(relative_path);
 	Ok(path)
@@ -100,7 +106,9 @@ fn to_syntax_string(param_type: &ethabi::ParamType) -> proc_macro2::TokenStream 
 			let param_type_quote = to_syntax_string(param_type);
 			quote! { ethabi::ParamType::FixedArray(Box::new(#param_type_quote), #x) }
 		}
-		ParamType::Tuple(_) => unimplemented!(),
+		ParamType::Tuple(_) => {
+			unimplemented!("Tuples are not supported. https://github.com/openethereum/ethabi/issues/175")
+		}
 	}
 }
 
@@ -116,7 +124,8 @@ where
 			quote! {
 				ethabi::Param {
 					name: #name.to_owned(),
-					kind: #kind
+					kind: #kind,
+					internal_type: None
 				}
 			}
 		})
@@ -143,7 +152,9 @@ fn rust_type(input: &ParamType) -> proc_macro2::TokenStream {
 			let t = rust_type(&*kind);
 			quote! { [#t, #size] }
 		}
-		ParamType::Tuple(_) => unimplemented!(),
+		ParamType::Tuple(_) => {
+			unimplemented!("Tuples are not supported. https://github.com/openethereum/ethabi/issues/175")
+		}
 	}
 }
 
@@ -171,7 +182,9 @@ fn template_param_type(input: &ParamType, index: usize) -> proc_macro2::TokenStr
 				#t_ident: Into<[#u_ident; #size]>, #u_ident: Into<#t>
 			}
 		}
-		ParamType::Tuple(_) => unimplemented!(),
+		ParamType::Tuple(_) => {
+			unimplemented!("Tuples are not supported. https://github.com/openethereum/ethabi/issues/175")
+		}
 	}
 }
 
@@ -216,18 +229,20 @@ fn to_token(name: &proc_macro2::TokenStream, kind: &ParamType) -> proc_macro2::T
 				}
 			}
 		}
-		ParamType::Tuple(_) => unimplemented!(),
+		ParamType::Tuple(_) => {
+			unimplemented!("Tuples are not supported. https://github.com/openethereum/ethabi/issues/175")
+		}
 	}
 }
 
 fn from_token(kind: &ParamType, token: &proc_macro2::TokenStream) -> proc_macro2::TokenStream {
 	match *kind {
-		ParamType::Address => quote! { #token.to_address().expect(INTERNAL_ERR) },
-		ParamType::Bytes => quote! { #token.to_bytes().expect(INTERNAL_ERR) },
+		ParamType::Address => quote! { #token.into_address().expect(INTERNAL_ERR) },
+		ParamType::Bytes => quote! { #token.into_bytes().expect(INTERNAL_ERR) },
 		ParamType::FixedBytes(32) => quote! {
 			{
 				let mut result = [0u8; 32];
-				let v = #token.to_fixed_bytes().expect(INTERNAL_ERR);
+				let v = #token.into_fixed_bytes().expect(INTERNAL_ERR);
 				result.copy_from_slice(&v);
 				ethabi::Hash::from(result)
 			}
@@ -237,21 +252,21 @@ fn from_token(kind: &ParamType, token: &proc_macro2::TokenStream) -> proc_macro2
 			quote! {
 				{
 					let mut result = [0u8; #size];
-					let v = #token.to_fixed_bytes().expect(INTERNAL_ERR);
+					let v = #token.into_fixed_bytes().expect(INTERNAL_ERR);
 					result.copy_from_slice(&v);
 					result
 				}
 			}
 		}
-		ParamType::Int(_) => quote! { #token.to_int().expect(INTERNAL_ERR) },
-		ParamType::Uint(_) => quote! { #token.to_uint().expect(INTERNAL_ERR) },
-		ParamType::Bool => quote! { #token.to_bool().expect(INTERNAL_ERR) },
-		ParamType::String => quote! { #token.to_string().expect(INTERNAL_ERR) },
+		ParamType::Int(_) => quote! { #token.into_int().expect(INTERNAL_ERR) },
+		ParamType::Uint(_) => quote! { #token.into_uint().expect(INTERNAL_ERR) },
+		ParamType::Bool => quote! { #token.into_bool().expect(INTERNAL_ERR) },
+		ParamType::String => quote! { #token.into_string().expect(INTERNAL_ERR) },
 		ParamType::Array(ref kind) => {
 			let inner = quote! { inner };
 			let inner_loop = from_token(kind, &inner);
 			quote! {
-				#token.to_array().expect(INTERNAL_ERR).into_iter()
+				#token.into_array().expect(INTERNAL_ERR).into_iter()
 					.map(|#inner| #inner_loop)
 					.collect()
 			}
@@ -268,7 +283,9 @@ fn from_token(kind: &ParamType, token: &proc_macro2::TokenStream) -> proc_macro2
 				}
 			}
 		}
-		ParamType::Tuple(_) => unimplemented!(),
+		ParamType::Tuple(_) => {
+			unimplemented!("Tuples are not supported. https://github.com/openethereum/ethabi/issues/175")
+		}
 	}
 }
 
