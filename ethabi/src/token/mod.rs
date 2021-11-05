@@ -12,9 +12,9 @@ mod lenient;
 mod strict;
 mod token;
 
-pub use self::lenient::LenientTokenizer;
-pub use self::strict::StrictTokenizer;
-pub use self::token::Token;
+use std::cmp::Ordering::{Equal, Less};
+
+pub use self::{lenient::LenientTokenizer, strict::StrictTokenizer, token::Token};
 use crate::{Error, ParamType};
 
 /// This trait should be used to parse string values as tokens.
@@ -45,7 +45,7 @@ pub trait Tokenizer {
 	}
 
 	/// Tried to parse a struct as a vector of tokens
-	fn tokenize_struct(value: &str, param: &Vec<Box<ParamType>>) -> Result<Vec<Token>, Error> {
+	fn tokenize_struct(value: &str, param: &[ParamType]) -> Result<Vec<Token>, Error> {
 		if !value.starts_with('(') || !value.ends_with(')') {
 			return Err(Error::InvalidData);
 		}
@@ -61,24 +61,29 @@ pub trait Tokenizer {
 		let mut params = param.iter();
 		for (pos, ch) in value.chars().enumerate() {
 			match ch {
-				'(' if ignore == false => {
+				'(' if !ignore => {
 					nested += 1;
 				}
-				')' if ignore == false => {
+				')' if !ignore => {
 					nested -= 1;
-					if nested < 0 {
-						return Err(Error::InvalidData);
-					} else if nested == 0 {
-						let sub = &value[last_item..pos];
-						let token = Self::tokenize(params.next().ok_or(Error::InvalidData)?, sub)?;
-						result.push(token);
-						last_item = pos + 1;
+
+					match nested.cmp(&0) {
+						Less => {
+							return Err(Error::InvalidData);
+						}
+						Equal => {
+							let sub = &value[last_item..pos];
+							let token = Self::tokenize(params.next().ok_or(Error::InvalidData)?, sub)?;
+							result.push(token);
+							last_item = pos + 1;
+						}
+						_ => {}
 					}
 				}
 				'"' => {
 					ignore = !ignore;
 				}
-				',' if nested == 1 && ignore == false => {
+				',' if nested == 1 && !ignore => {
 					let sub = &value[last_item..pos];
 					let token = Self::tokenize(params.next().ok_or(Error::InvalidData)?, sub)?;
 					result.push(token);
@@ -111,24 +116,28 @@ pub trait Tokenizer {
 		let mut last_item = 1;
 		for (i, ch) in value.chars().enumerate() {
 			match ch {
-				'[' if ignore == false => {
+				'[' if !ignore => {
 					nested += 1;
 				}
-				']' if ignore == false => {
+				']' if !ignore => {
 					nested -= 1;
-					if nested < 0 {
-						return Err(Error::InvalidData);
-					} else if nested == 0 {
-						let sub = &value[last_item..i];
-						let token = Self::tokenize(param, sub)?;
-						result.push(token);
-						last_item = i + 1;
+					match nested.cmp(&0) {
+						Less => {
+							return Err(Error::InvalidData);
+						}
+						Equal => {
+							let sub = &value[last_item..i];
+							let token = Self::tokenize(param, sub)?;
+							result.push(token);
+							last_item = i + 1;
+						}
+						_ => {}
 					}
 				}
 				'"' => {
 					ignore = !ignore;
 				}
-				',' if nested == 1 && ignore == false => {
+				',' if nested == 1 && !ignore => {
 					let sub = &value[last_item..i];
 					let token = Self::tokenize(param, sub)?;
 					result.push(token);
