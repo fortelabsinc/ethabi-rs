@@ -1,6 +1,7 @@
-use syn::Attribute;
+use anyhow::anyhow;
 use ethabi::Result;
 use std::collections::HashMap;
+use syn::Attribute;
 
 pub struct FunctionOptions {
     pub signature: String,
@@ -16,16 +17,14 @@ impl ContractOptions {
     pub fn from_attrs(attrs: &[Attribute]) -> Result<Self> {
         let options = get_options(attrs, "ethabi_contract_options")?;
         let path = get_option(&options, "path")?;
-        let functions = get_function_options(attrs)?
-            .into_iter()
-            .fold(HashMap::new(), |mut map, option| {
-                map.entry(option.signature.to_string()).or_insert(option);
-                map
-            });
-        Ok(Self {
-            path,
-            functions,
-        })
+        let functions =
+            get_function_options(attrs)?
+                .into_iter()
+                .fold(HashMap::new(), |mut map, option| {
+                    map.entry(option.signature.to_string()).or_insert(option);
+                    map
+                });
+        Ok(Self { path, functions })
     }
 }
 
@@ -49,11 +48,14 @@ fn get_function_options(attrs: &[syn::Attribute]) -> Result<Vec<FunctionOptions>
 }
 
 fn get_options(attrs: &[syn::Attribute], name: &str) -> Result<Vec<syn::NestedMeta>> {
-    let options = attrs.iter().flat_map(syn::Attribute::parse_meta).find(|meta| meta.path().is_ident(name));
+    let options = attrs
+        .iter()
+        .flat_map(syn::Attribute::parse_meta)
+        .find(|meta| meta.path().is_ident(name));
 
     match options {
         Some(syn::Meta::List(list)) => Ok(list.nested.into_iter().collect()),
-        _ => Err("Unexpected meta item".into()),
+        _ => Err(ethabi::Error::Other(anyhow!("Unexpected meta item"))),
     }
 }
 
@@ -65,7 +67,9 @@ fn get_option(options: &[syn::NestedMeta], name: &str) -> Result<String> {
             _ => None,
         })
         .find(|meta| meta.path().is_ident(name))
-        .ok_or_else(|| format!("Expected to find option {}", name))?;
+        .ok_or_else(|| {
+            ethabi::Error::Other(anyhow!(format!("Expected to find option {}", name)))
+        })?;
 
     str_value_of_meta_item(item, name)
 }
@@ -77,5 +81,9 @@ fn str_value_of_meta_item(item: &syn::Meta, name: &str) -> Result<String> {
         }
     }
 
-    Err(format!(r#"`{}` must be in the form `#[{}="something"]`"#, name, name).into())
+    Err(ethabi::Error::Other(anyhow!(format!(
+        r#"`{}` must be in the form `#[{}="something"]`"#,
+        name, name
+    )))
+    .into())
 }
