@@ -131,6 +131,11 @@ impl Contract {
 	pub fn fallback(&self) -> bool {
 		self.fallback
 	}
+
+	/// Returns true if contract has receive
+	pub fn receive(&self) -> bool {
+		self.receive
+	}
 }
 
 /// Contract functions iterator.
