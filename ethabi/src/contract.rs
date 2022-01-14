@@ -27,6 +27,8 @@ pub struct Contract {
 	pub events: HashMap<String, Vec<Event>>,
 	/// Contract has fallback function.
 	pub fallback: bool,
+	/// Contract has receive function.
+	pub receive: bool,
 }
 
 impl<'a> Deserialize<'a> for Contract {
@@ -51,8 +53,13 @@ impl<'a> Visitor<'a> for ContractVisitor {
 	where
 		A: SeqAccess<'a>,
 	{
-		let mut result =
-			Contract { constructor: None, functions: HashMap::default(), events: HashMap::default(), fallback: false };
+		let mut result = Contract {
+			constructor: None,
+			functions: HashMap::default(),
+			events: HashMap::default(),
+			fallback: false,
+			receive: false,
+		};
 
 		while let Some(operation) = seq.next_element()? {
 			match operation {
@@ -67,6 +74,9 @@ impl<'a> Visitor<'a> for ContractVisitor {
 				}
 				Operation::Fallback => {
 					result.fallback = true;
+				}
+				Operation::Receive => {
+					result.receive = true;
 				}
 			}
 		}
