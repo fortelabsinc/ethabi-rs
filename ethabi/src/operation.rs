@@ -9,35 +9,24 @@
 //! Operation type.
 
 use crate::{Constructor, Event, Function};
-use serde::{
-	de::Error as SerdeError,
-	Deserialize,
-	Deserializer,
-	Serialize
-};
-use serde_json::{value::from_value, Value};
+use serde::de::Error as SerdeError;
+use serde::{Deserialize, Deserializer};
+use serde_json::value::from_value;
+use serde_json::Value;
 
 /// Operation type.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[serde(tag = "type")]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Operation {
 	/// Contract constructor.
-	#[serde(rename = "constructor")]
 	Constructor(Constructor),
 	/// Contract function.
-	#[serde(rename = "function")]
 	Function(Function),
 	/// Contract event.
-	#[serde(rename = "event")]
 	Event(Event),
-	/// Fallback function.
-	#[serde(rename = "fallback")]
+	/// Fallback, ignored.
 	Fallback,
-	/// Receive function.
-	#[serde(rename = "receive")]
 	Receive,
 }
-
 
 impl<'a> Deserialize<'a> for Operation {
 	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
