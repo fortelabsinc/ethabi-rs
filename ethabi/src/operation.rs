@@ -40,33 +40,33 @@ impl<'a> Deserialize<'a> for Operation {
 	where
 		D: Deserializer<'a>,
 	{
-		// let v: Value = Deserialize::deserialize(deserializer)?;
-		// let map = v.as_object().ok_or_else(|| SerdeError::custom("Invalid operation"))?;
-		// let s = map.get("type").and_then(Value::as_str).ok_or_else(|| SerdeError::custom("Invalid operation type"))?;
+		let v: Value = Deserialize::deserialize(deserializer)?;
+		let map = v.as_object().ok_or_else(|| SerdeError::custom("Invalid operation"))?;
+		let s = map.get("type").and_then(Value::as_str).ok_or_else(|| SerdeError::custom("Invalid operation type"))?;
 
 		// This is a workaround to support non-spec compliant function and event names,
 		// see: https://github.com/paritytech/parity/issues/4122
-		// fn sanitize_name(name: &mut String) {
-		// 	if let Some(i) = name.find('(') {
-		// 		name.truncate(i);
-		// 	}
-		// }
+		fn sanitize_name(name: &mut String) {
+			if let Some(i) = name.find('(') {
+				name.truncate(i);
+			}
+		}
 
-		// let result = match s {
-		// 	"constructor" => from_value(v).map(Operation::Constructor),
-		// 	"function" => from_value(v).map(|mut f: Function| {
-		// 		// sanitize_name(&mut f.name);
-		// 		Operation::Function(f)
-		// 	}),
-		// 	"event" => from_value(v).map(|mut e: Event| {
-		// 		// sanitize_name(&mut e.name);
-		// 		Operation::Event(e)
-		// 	}),
-		// 	"fallback" => Ok(Operation::Fallback),
-		// 	"receive" => Ok(Operation::Receive),
-		// 	other => Err(SerdeError::custom(format!("Invalid operation type {}.", other))),
-		// };
-		// result.map_err(|e| D::Error::custom(e.to_string()))
+		let result = match s {
+			"constructor" => from_value(v).map(Operation::Constructor),
+			"function" => from_value(v).map(|mut f: Function| {
+				sanitize_name(&mut f.name);
+				Operation::Function(f)
+			}),
+			"event" => from_value(v).map(|mut e: Event| {
+				sanitize_name(&mut e.name);
+				Operation::Event(e)
+			}),
+			"fallback" => Ok(Operation::Fallback),
+			"receive" => Ok(Operation::Receive),
+			other => Err(SerdeError::custom(format!("Invalid operation type {}.", other))),
+		};
+		result.map_err(|e| D::Error::custom(e.to_string()))
 	}
 }
 

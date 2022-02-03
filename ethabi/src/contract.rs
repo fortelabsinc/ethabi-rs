@@ -55,7 +55,14 @@ impl<'a> Visitor<'a> for ContractVisitor {
 	where
 		A: SeqAccess<'a>,
 	{
-		let mut result = Contract::default();
+		let mut result = Contract {
+			constructor: None,
+			functions: HashMap::default(),
+			events: HashMap::default(),
+			receive: true,
+			fallback: false,
+		};
+		
 		while let Some(operation) = seq.next_element()? {
 			match operation {
 				Operation::Constructor(constructor) => {
