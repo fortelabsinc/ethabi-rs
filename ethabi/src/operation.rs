@@ -46,20 +46,20 @@ impl<'a> Deserialize<'a> for Operation {
 
 		// This is a workaround to support non-spec compliant function and event names,
 		// see: https://github.com/paritytech/parity/issues/4122
-		fn sanitize_name(name: &mut String) {
-			if let Some(i) = name.find('(') {
-				name.truncate(i);
-			}
-		}
+		// fn sanitize_name(name: &mut String) {
+		// 	if let Some(i) = name.find('(') {
+		// 		name.truncate(i);
+		// 	}
+		// }
 
 		let result = match s {
 			"constructor" => from_value(v).map(Operation::Constructor),
 			"function" => from_value(v).map(|mut f: Function| {
-				sanitize_name(&mut f.name);
+				// sanitize_name(&mut f.name);
 				Operation::Function(f)
 			}),
 			"event" => from_value(v).map(|mut e: Event| {
-				sanitize_name(&mut e.name);
+				// sanitize_name(&mut e.name);
 				Operation::Event(e)
 			}),
 			"fallback" => Ok(Operation::Fallback),
