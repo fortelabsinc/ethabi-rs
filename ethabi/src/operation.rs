@@ -9,22 +9,29 @@
 //! Operation type.
 
 use crate::{Constructor, Event, Function};
-use serde::de::Error as SerdeError;
-use serde::{Deserialize, Deserializer};
-use serde_json::value::from_value;
-use serde_json::Value;
+
+// use serde::{Deserialize, Serialize};
+use serde::{de::Error as SerdeError,  Deserialize, Deserializer};
+use serde_json::{value::from_value, Value};
 
 /// Operation type.
 #[derive(Clone, Debug, PartialEq)]
+// #[serde(tag = "type")]
 pub enum Operation {
 	/// Contract constructor.
+	// #[serde(rename = "constructor")]
 	Constructor(Constructor),
 	/// Contract function.
+	// #[serde(rename = "function")]
 	Function(Function),
 	/// Contract event.
+	// #[serde(rename = "event")]
 	Event(Event),
-	/// Fallback, ignored.
+	/// Fallback function.
+	// #[serde(rename = "fallback")]
 	Fallback,
+	/// Receive function.
+	// #[serde(rename = "receive")]
 	Receive,
 }
 
