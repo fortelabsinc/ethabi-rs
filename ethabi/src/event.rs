@@ -8,20 +8,24 @@
 
 //! Contract event.
 
+#[cfg(feature = "full-serde")]
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::HashMap;
 
+#[cfg(not(feature = "std"))]
+use crate::no_std_prelude::*;
 use crate::{
 	decode, encode, signature::long_signature, Error, EventParam, Hash, Log, LogParam, ParamType, RawLog,
 	RawTopicFilter, Result, Token, Topic, TopicFilter,
 };
 
 /// Contract event.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "full-serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Event {
 	/// Event name.
-	#[serde(deserialize_with = "crate::util::sanitize_name::deserialize")]
+	#[cfg_attr(feature = "full-serde", serde(deserialize_with = "crate::util::sanitize_name::deserialize"))]
 	pub name: String,
 	/// Event input.
 	pub inputs: Vec<EventParam>,
@@ -175,13 +179,16 @@ impl Event {
 
 #[cfg(test)]
 mod tests {
+	use hex_literal::hex;
+
+	#[cfg(not(feature = "std"))]
+	use crate::no_std_prelude::*;
 	use crate::{
 		log::{Log, RawLog},
 		signature::long_signature,
 		token::Token,
 		Event, EventParam, LogParam, ParamType,
 	};
-	use hex_literal::hex;
 
 	#[test]
 	fn test_decoding_event() {

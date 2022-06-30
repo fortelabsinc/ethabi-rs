@@ -6,18 +6,23 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use sha3::{Digest, Keccak256};
+
+#[cfg(not(feature = "std"))]
+use crate::no_std_prelude::*;
 use crate::{
 	param_type::{ParamType, Writer},
 	Hash,
 };
-use sha3::{Digest, Keccak256};
 
+/// Returns the first four bytes of the Keccak-256 hash of the signature of the given params
 pub fn short_signature(name: &str, params: &[ParamType]) -> [u8; 4] {
 	let mut result = [0u8; 4];
 	fill_signature(name, params, &mut result);
 	result
 }
 
+/// Returns the full Keccak-256 hash of the signature of the given params
 pub fn long_signature(name: &str, params: &[ParamType]) -> Hash {
 	let mut result = [0u8; 32];
 	fill_signature(name, params, &mut result);

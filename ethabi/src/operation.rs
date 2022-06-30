@@ -8,7 +8,7 @@
 
 //! Operation type.
 
-use crate::{Constructor, Event, Function};
+use crate::{error::Error, Constructor, Event, Function};
 use serde::{Deserialize, Serialize};
 
 /// Operation type.
@@ -24,6 +24,9 @@ pub enum Operation {
 	/// Contract event.
 	#[serde(rename = "event")]
 	Event(Event),
+	/// Contract event.
+	#[serde(rename = "error")]
+	Error(Error),
 	/// Fallback function.
 	#[serde(rename = "fallback")]
 	Fallback,
@@ -147,7 +150,7 @@ mod tests {
 			let deserialized: Operation = serde_json::from_str(&s).unwrap();
 			let function = match &deserialized {
 				Operation::Function(f) => f,
-				_ => panic!("expected funciton"),
+				_ => panic!("expected function"),
 			};
 
 			assert_eq!(function.name, expected);

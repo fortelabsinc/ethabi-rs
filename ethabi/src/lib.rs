@@ -8,25 +8,47 @@
 
 //! Ethereum ABI encoding decoding library.
 
+#![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::module_inception)]
 #![warn(missing_docs)]
+
+#[cfg_attr(not(feature = "std"), macro_use)]
+extern crate alloc;
+#[cfg(not(feature = "std"))]
+mod no_std_prelude {
+	pub use alloc::{
+		borrow::{Cow, ToOwned},
+		boxed::Box,
+		string::{self, String, ToString},
+		vec::Vec,
+	};
+}
+#[cfg(feature = "std")]
+mod no_std_prelude {
+	pub use std::borrow::Cow;
+}
+#[cfg(not(feature = "std"))]
+use no_std_prelude::*;
 
 mod constructor;
 mod contract;
 mod decoder;
 mod encoder;
+mod error;
 mod errors;
 mod event;
 mod event_param;
 mod filter;
 mod function;
 mod log;
+#[cfg(feature = "full-serde")]
 mod operation;
 mod param;
 pub mod param_type;
 mod signature;
 mod state_mutability;
 pub mod token;
+#[cfg(feature = "full-serde")]
 mod tuple_param;
 mod util;
 
@@ -35,11 +57,14 @@ mod tests;
 
 pub use ethereum_types;
 
+#[cfg(feature = "full-serde")]
+pub use crate::tuple_param::TupleParam;
 pub use crate::{
 	constructor::Constructor,
 	contract::{Contract, Events, Functions},
 	decoder::decode,
 	encoder::encode,
+	error::Error as AbiError,
 	errors::{Error, Result},
 	event::Event,
 	event_param::EventParam,
@@ -48,9 +73,9 @@ pub use crate::{
 	log::{Log, LogFilter, LogParam, ParseLog, RawLog},
 	param::Param,
 	param_type::ParamType,
+	signature::{long_signature, short_signature},
 	state_mutability::StateMutability,
 	token::Token,
-	tuple_param::TupleParam,
 };
 
 /// ABI word.

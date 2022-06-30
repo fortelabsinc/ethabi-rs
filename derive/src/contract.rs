@@ -23,6 +23,8 @@ pub struct Contract {
 	events: Vec<Event>,
 }
 
+
+
 impl<'a> From<&'a ethabi::Contract> for Contract {
 	fn from(c: &'a ethabi::Contract) -> Self {
 		Contract {
@@ -34,30 +36,28 @@ impl<'a> From<&'a ethabi::Contract> for Contract {
 }
 
 impl Contract {
-	pub fn new(c: &ethabi::Contract, options: Option<ContractOptions>) -> Self {
 
-		let functions: Vec<Function> = match options {
-			Some(contract_options) => {
-				c.functions()
-					.map(|function| {
-						let mut func = Function::from(function);
-						if let Some(fn_options) = contract_options.functions.get(&func.signature) {
-							func.module_name = fn_options.alias.to_string();
-						}
-						func
-					}).filter(|function|
-						function.module_name.len() > 0
-					).collect()
-			},
-			None => c.functions().map(Into::into).collect()
-		};
-
-		Self {
-			constructor: c.constructor.as_ref().map(Into::into),
-			functions,
-			events: c.events().map(Into::into).collect(),
-		}
-	}
+    pub fn new(c: &ethabi::Contract, options: Option<ContractOptions>) -> Self {
+	    let functions: Vec<Function> = match options {
+		    Some(contract_options) => {
+		 	    c.functions().map(|function| {
+				    let mut func = Function::from(function);
+				    if let Some(fn_options) = contract_options.functions.get(&func.signature) {
+					    func.module_name = fn_options.alias.to_string();
+				    }
+				    func
+			    }).filter(|function|
+				    function.module_name.len() > 0
+			    ).collect()
+		    },
+		    None => c.functions().map(Into::into).collect()
+	    };
+	    Self {
+		    constructor: c.constructor.as_ref().map(Into::into),
+		    functions,
+		    events: c.events().map(Into::into).collect(),
+	    }
+    }
 
 	/// Generates rust interface for a contract.
 	pub fn generate(&self) -> TokenStream {
@@ -105,6 +105,7 @@ mod test {
 			constructor: None,
 			functions: Default::default(),
 			events: Default::default(),
+			errors: Default::default(),
 			receive: false,
 			fallback: false,
 		};

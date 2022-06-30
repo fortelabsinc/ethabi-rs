@@ -54,7 +54,6 @@ struct Outputs {
 
 /// Structure used to generate contract's function interface.
 pub struct Function {
-	/// Function name.
 	pub name: String,
 	/// Function module name. ex: safe_transfer_from
 	pub module_name: String,
