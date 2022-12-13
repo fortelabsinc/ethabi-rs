@@ -7,9 +7,8 @@
 // except according to those terms.
 
 use heck::SnakeCase;
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::quote;
-use syn::export::Span;
 use {ethabi, syn};
 
 use super::{
